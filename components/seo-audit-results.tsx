@@ -6,6 +6,7 @@ import {
   Share2,
   RefreshCw,
   ExternalLink,
+  Copy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -25,7 +26,9 @@ import {
   FileText,
   Eye,
   Globe,
+  Activity,
 } from "lucide-react";
+import { toast } from "sonner";
 
 interface SEOAuditResultsProps {
   result: SEOAudit;
@@ -52,6 +55,21 @@ export function SEOAuditResults({
     } else {
       navigator.clipboard.writeText(window.location.href);
       alert("Link copied to clipboard!");
+    }
+  };
+
+  const handleCopyMarkdown = async () => {
+    if (!result.markdown) {
+      toast("No markdown content available");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(result.markdown);
+      toast("Markdown copied to clipboard! Ready to use in LLMs.");
+    } catch (error) {
+      console.error("Failed to copy markdown:", error);
+      toast("Failed to copy markdown to clipboard");
     }
   };
 
@@ -98,6 +116,16 @@ export function SEOAuditResults({
       icon: Globe,
       color: "text-cyan-500",
     },
+    ...(result.web_vitals
+      ? [
+          {
+            name: "Web Vitals",
+            score: result.web_vitals,
+            icon: Activity,
+            color: "text-pink-500",
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -120,6 +148,12 @@ export function SEOAuditResults({
             <RefreshCw className="w-4 h-4 mr-2" />
             Re-run
           </Button>
+          {result.markdown && (
+            <Button variant="outline" size="sm" onClick={handleCopyMarkdown}>
+              <Copy className="w-4 h-4 mr-2" />
+              Copy Markdown
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={handleExportPDF}>
             <Download className="w-4 h-4 mr-2" />
             Export PDF
@@ -239,7 +273,7 @@ export function SEOAuditResults({
           Detailed Analysis
         </h2>
         <Tabs defaultValue="technical" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-7">
+          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8">
             <TabsTrigger value="technical">Technical</TabsTrigger>
             <TabsTrigger value="onpage">On-Page</TabsTrigger>
             <TabsTrigger value="content">Content</TabsTrigger>
@@ -247,6 +281,9 @@ export function SEOAuditResults({
             <TabsTrigger value="schema">Schema</TabsTrigger>
             <TabsTrigger value="security">Security</TabsTrigger>
             <TabsTrigger value="ux">UX</TabsTrigger>
+            {result.web_vitals && (
+              <TabsTrigger value="vitals">Web Vitals</TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="technical" className="space-y-4 mt-4">
@@ -521,6 +558,57 @@ export function SEOAuditResults({
             </div>
             <IssuesList issues={result.user_experience.issues} />
           </TabsContent>
+
+          {result.web_vitals && (
+            <TabsContent value="vitals" className="space-y-4 mt-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-semibold">Core Web Vitals</h3>
+                <Badge variant="outline">
+                  {result.web_vitals.score.toFixed(1)} /{" "}
+                  {result.web_vitals.max_score}
+                </Badge>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <WebVitalMetric
+                  label="LCP (Largest Contentful Paint)"
+                  value={`${result.web_vitals.lcp_ms.toFixed(0)}ms`}
+                  rating={result.web_vitals.lcp_rating}
+                />
+                <WebVitalMetric
+                  label="FCP (First Contentful Paint)"
+                  value={`${result.web_vitals.fcp_ms.toFixed(0)}ms`}
+                  rating={result.web_vitals.fcp_rating}
+                />
+                <WebVitalMetric
+                  label="CLS (Cumulative Layout Shift)"
+                  value={result.web_vitals.cls.toFixed(3)}
+                  rating={result.web_vitals.cls_rating}
+                />
+                <WebVitalMetric
+                  label="TTFB (Time to First Byte)"
+                  value={`${result.web_vitals.ttfb_ms.toFixed(0)}ms`}
+                  rating={result.web_vitals.ttfb_rating}
+                />
+                <MetricCard
+                  label="DOM Content Loaded"
+                  value={`${result.web_vitals.dom_content_loaded_ms.toFixed(0)}ms`}
+                />
+                <MetricCard
+                  label="DOM Complete"
+                  value={`${result.web_vitals.dom_complete_ms.toFixed(0)}ms`}
+                />
+                <MetricCard
+                  label="Transfer Size"
+                  value={formatBytes(result.web_vitals.transfer_size_bytes)}
+                />
+                <MetricCard
+                  label="Resource Count"
+                  value={result.web_vitals.resource_count.toString()}
+                />
+              </div>
+              <IssuesList issues={result.web_vitals.issues} />
+            </TabsContent>
+          )}
         </Tabs>
       </Card>
     </div>
@@ -572,6 +660,56 @@ function BooleanMetric({
       ) : (
         <XCircle className="w-5 h-5 text-red-500" />
       )}
+    </div>
+  );
+}
+
+function WebVitalMetric({
+  label,
+  value,
+  rating,
+}: {
+  label: string;
+  value: string;
+  rating: string;
+}) {
+  const getRatingColor = (rating: string) => {
+    switch (rating) {
+      case "good":
+        return "text-green-500 bg-green-500/10";
+      case "needs-improvement":
+        return "text-yellow-500 bg-yellow-500/10";
+      case "poor":
+        return "text-red-500 bg-red-500/10";
+      default:
+        return "text-muted-foreground bg-secondary";
+    }
+  };
+
+  const getRatingLabel = (rating: string) => {
+    switch (rating) {
+      case "good":
+        return "Good";
+      case "needs-improvement":
+        return "Needs Improvement";
+      case "poor":
+        return "Poor";
+      default:
+        return rating;
+    }
+  };
+
+  return (
+    <div className="flex flex-col p-3 bg-secondary/50 rounded-lg">
+      <span className="text-sm text-muted-foreground mb-1">{label}</span>
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium text-foreground">{value}</span>
+        <span
+          className={`text-xs px-2 py-0.5 rounded-full font-medium ${getRatingColor(rating)}`}
+        >
+          {getRatingLabel(rating)}
+        </span>
+      </div>
     </div>
   );
 }

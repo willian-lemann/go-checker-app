@@ -9,9 +9,11 @@ export interface SEOAudit {
   schema_markup: SchemaMarkupScore;
   security: SecurityScore;
   user_experience: UserExperienceScore;
+  web_vitals?: WebVitalsScore;
   overall_score: number;
   grade: string;
   recommendations: string[];
+  markdown?: string;
 }
 
 // TechnicalSEOScore holds technical SEO metrics
@@ -105,6 +107,25 @@ export interface UserExperienceScore {
   font_size_readable: boolean;
   has_lang_attribute: boolean;
   no_intrusive_popups: boolean;
+  issues: string[];
+}
+
+// WebVitalsScore holds Core Web Vitals metrics
+export interface WebVitalsScore {
+  score: number;
+  max_score: number;
+  lcp_ms: number; // Largest Contentful Paint (ms)
+  lcp_rating: string; // good, needs-improvement, poor
+  fcp_ms: number; // First Contentful Paint (ms)
+  fcp_rating: string; // good, needs-improvement, poor
+  cls: number; // Cumulative Layout Shift (unitless)
+  cls_rating: string; // good, needs-improvement, poor
+  ttfb_ms: number; // Time to First Byte (ms)
+  ttfb_rating: string; // good, needs-improvement, poor
+  dom_content_loaded_ms: number; // DOMContentLoaded event (ms)
+  dom_complete_ms: number; // DOM complete (ms)
+  transfer_size_bytes: number; // Total transfer size
+  resource_count: number; // Number of resources loaded
   issues: string[];
 }
 
